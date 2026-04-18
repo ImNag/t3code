@@ -1,3 +1,4 @@
+import { BEDROCK_MODEL_MAP, isBedrockEnabled } from "./ClaudeAWSBedrockConfig.ts";
 import type {
   ClaudeSettings,
   ClaudeModelSelection,
@@ -165,11 +166,19 @@ export function getClaudeModelCapabilities(model: string | null | undefined): Mo
 }
 
 export function resolveClaudeApiModelId(modelSelection: ClaudeModelSelection): string {
+  let baseModel: string;
+  switch (isBedrockEnabled()) {
+    case true:
+      baseModel = BEDROCK_MODEL_MAP[modelSelection.model] ?? modelSelection.model;
+      break;
+    default:
+      baseModel = modelSelection.model;
+  }
   switch (modelSelection.options?.contextWindow) {
     case "1m":
-      return `${modelSelection.model}[1m]`;
+      return `${baseModel}[1m]`;
     default:
-      return modelSelection.model;
+      return baseModel;
   }
 }
 export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
