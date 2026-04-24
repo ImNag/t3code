@@ -100,6 +100,48 @@ else
   fail "git not found"
 fi
 
+hdr "Git remotes"
+
+# Project convention: GitHub remotes must use SSH (git@github.com:owner/repo.git),
+# not HTTPS. HTTPS pushes prompt for credentials in non-interactive shells
+# (IntelliJ run configs, cron, CI-lite scripts) and break silently.
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+  REMOTES=$(git remote)
+  if [[ -z "$REMOTES" ]]; then
+    warn "no git remotes configured"
+  else
+    for remote in ${(f)REMOTES}; do
+      url=$(git remote get-url "$remote" 2>/dev/null)
+      case "$url" in
+        git@github.com:*)
+          ok "remote '$remote' uses SSH ($url)"
+          ;;
+        https://github.com/*)
+          owner_repo=${url#https://github.com/}
+          owner_repo=${owner_repo%.git}
+          warn "remote '$remote' uses HTTPS — switch with:"
+          print "         git remote set-url $remote git@github.com:${owner_repo}.git"
+          ;;
+        *)
+          ok "remote '$remote' ($url)"
+          ;;
+      esac
+    done
+  fi
+
+  if command -v ssh >/dev/null 2>&1; then
+    # ssh -T git@github.com always exits non-zero; match the welcome line instead.
+    SSH_OUT=$(ssh -T -o BatchMode=yes -o ConnectTimeout=5 git@github.com 2>&1 || true)
+    if print -r -- "$SSH_OUT" | grep -q "successfully authenticated"; then
+      ok "ssh to git@github.com works"
+    else
+      warn "ssh to git@github.com failed — add your key with: ssh-add ~/.ssh/id_ed25519"
+    fi
+  fi
+else
+  info "not a git repo — skipping remote checks"
+fi
+
 hdr "Provider CLIs"
 
 if command -v codex >/dev/null 2>&1; then
