@@ -38,6 +38,7 @@ import {
   type CommandResult,
 } from "../providerSnapshot.ts";
 import { compareCliVersions } from "../cliVersion.ts";
+import { BEDROCK_MODEL_MAP, isBedrockEnabled } from "./ClaudeAWSBedrockConfig.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import { ClaudeProvider } from "../Services/ClaudeProvider.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
@@ -181,7 +182,7 @@ const BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
       ],
     }),
   },
-];
+].filter((model) => !isBedrockEnabled() || model.slug in BEDROCK_MODEL_MAP);
 
 function supportsClaudeOpus47(version: string | null | undefined): boolean {
   return version ? compareCliVersions(version, MINIMUM_CLAUDE_OPUS_4_7_VERSION) >= 0 : false;
@@ -243,11 +244,14 @@ export function normalizeClaudeCliEffort(effort: string | null | undefined): str
 }
 
 export function resolveClaudeApiModelId(modelSelection: ClaudeModelSelection): string {
+  const baseModel = isBedrockEnabled()
+    ? (BEDROCK_MODEL_MAP[modelSelection.model] ?? modelSelection.model)
+    : modelSelection.model;
   switch (getModelSelectionStringOptionValue(modelSelection, "contextWindow")) {
     case "1m":
-      return `${modelSelection.model}[1m]`;
+      return `${baseModel}[1m]`;
     default:
-      return modelSelection.model;
+      return baseModel;
   }
 }
 export function parseClaudeAuthStatusFromOutput(result: CommandResult): {
