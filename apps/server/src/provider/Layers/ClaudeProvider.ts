@@ -34,6 +34,7 @@ import {
 } from "../providerSnapshot.ts";
 import { compareCliVersions } from "../cliVersion.ts";
 import { makeClaudeEnvironment } from "../Drivers/ClaudeHome.ts";
+import { rewriteApiModelIdForBedrock } from "./ClaudeAWSBedrockConfig.ts";
 
 const DEFAULT_CLAUDE_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
   optionDescriptors: [],
@@ -235,12 +236,15 @@ export function normalizeClaudeCliEffort(effort: string | null | undefined): str
 }
 
 export function resolveClaudeApiModelId(modelSelection: ModelSelection): string {
-  switch (getModelSelectionStringOptionValue(modelSelection, "contextWindow")) {
-    case "1m":
-      return `${modelSelection.model}[1m]`;
-    default:
-      return modelSelection.model;
-  }
+  const baseId = (() => {
+    switch (getModelSelectionStringOptionValue(modelSelection, "contextWindow")) {
+      case "1m":
+        return `${modelSelection.model}[1m]`;
+      default:
+        return modelSelection.model;
+    }
+  })();
+  return rewriteApiModelIdForBedrock(baseId, modelSelection.model);
 }
 
 function toTitleCaseWords(value: string): string {
