@@ -3,6 +3,10 @@ name: Sync Upstream
 on:
   schedule:
     - cron: "0 22 * * *" # Daily at 5:00 AM Bangkok time (UTC+7)
+  push:
+    branches: [main] # Catches "Update branch" UI clicks and direct local pushes.
+    # Note: pushes from inside this workflow use the default GITHUB_TOKEN and
+    # do NOT retrigger workflows — that's the anti-recursion guard.
   workflow_dispatch: # Allow manual trigger
 
 jobs:
