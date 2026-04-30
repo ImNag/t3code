@@ -4,7 +4,6 @@ set -e
 
 RELEASE_DIR="release"
 BEDROCK_BRANCH="feat/claude-bedrock-model-override"
-VANILLA_BRANCH="main"
 
 # Trust the project's .mise.toml so non-interactive IDE shells don't block.
 if command -v mise >/dev/null 2>&1; then
@@ -71,14 +70,10 @@ EOF
 
   echo "→ Bedrock flavor on '${current_branch}'. Env var present. Proceeding."
 else
-  if [ "${current_branch}" != "${VANILLA_BRANCH}" ]; then
-    cat <<EOF
-⚠ Vanilla build typically runs from '${VANILLA_BRANCH}'; currently on '${current_branch}'.
-  The resulting dmg will still work as vanilla (the Bedrock wrap is dormant
-  without CLAUDE_CODE_USE_BEDROCK). Flagging in case this was unintended.
-
-EOF
-  fi
+  # Vanilla flavor: no branch enforcement.
+  # The Bedrock wrap on feat/... is a pure passthrough when
+  # CLAUDE_CODE_USE_BEDROCK is unset, so a feat-built dmg with no env
+  # behaves byte-for-byte like a main-built dmg.
   echo "→ Vanilla flavor on '${current_branch}'. Proceeding."
 fi
 
