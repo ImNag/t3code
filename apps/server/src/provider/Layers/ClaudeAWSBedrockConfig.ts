@@ -12,6 +12,9 @@
  * Touch points in upstream code are intentionally minimal (one wrap site in
  * `ClaudeAdapter.ts`) so this fork stays mergeable against `pingdotgg/t3code`.
  */
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 /**
  * Slug -> Bedrock global inference profile id, for slugs that have a 1:1
@@ -46,25 +49,41 @@ function isBedrockEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
 }
 
 /**
- * Returns a list of human-readable issues with the current Bedrock env.
- * Empty array when Bedrock is disabled, or when env looks valid.
+ * Returns a list of human-readable issues with the current Bedrock setup.
+ * Empty array when Bedrock is disabled, or when AWS looks configured.
  *
- * We don't actually authenticate against AWS — that would require pulling in
- * the AWS SDK. We just check that the env vars Bedrock will need are present.
+ * The AWS SDK resolves region and credentials from a chain that includes
+ * env vars and the shared config files in `~/.aws/`. We only warn when
+ * NEITHER source can plausibly satisfy the SDK — i.e. when env is empty
+ * AND the user has not set up `~/.aws/config` or `~/.aws/credentials`.
+ *
+ * We do not parse the config files (no AWS SDK pulled in) — file presence
+ * is treated as "user has set something up, trust them." If the file is
+ * present but the selected profile is broken, the SDK will surface a
+ * clear error on the first invocation.
  */
-function validateBedrockEnv(env: NodeJS.ProcessEnv = process.env): readonly string[] {
+function validateBedrockEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  homeDir: string = os.homedir(),
+): readonly string[] {
   if (!isBedrockEnabled(env)) return [];
   const issues: string[] = [];
 
-  if (!env.AWS_REGION && !env.AWS_DEFAULT_REGION) {
-    issues.push("AWS_REGION (or AWS_DEFAULT_REGION) is not set. Bedrock requests will fail.");
+  const hasConfigFile = fs.existsSync(path.join(homeDir, ".aws", "config"));
+  const hasCredentialsFile = fs.existsSync(path.join(homeDir, ".aws", "credentials"));
+
+  const hasRegionEnv = Boolean(env.AWS_REGION || env.AWS_DEFAULT_REGION);
+  const hasStaticKeys = Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY);
+
+  if (!hasRegionEnv && !hasConfigFile) {
+    issues.push(
+      "No AWS region available. Set AWS_REGION/AWS_DEFAULT_REGION or configure ~/.aws/config.",
+    );
   }
 
-  const hasProfile = Boolean(env.AWS_PROFILE);
-  const hasStaticKeys = Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY);
-  if (!hasProfile && !hasStaticKeys) {
+  if (!hasStaticKeys && !hasCredentialsFile && !hasConfigFile) {
     issues.push(
-      "No AWS credentials in env. Set AWS_PROFILE, or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY.",
+      "No AWS credentials available. Set AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials / ~/.aws/config.",
     );
   }
 
